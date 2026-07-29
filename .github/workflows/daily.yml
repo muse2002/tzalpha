@@ -18,16 +18,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: 저장소 내려받기
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 파이썬 준비
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
 
       - name: 패키지 설치
-        run: pip install yfinance pandas numpy
+        run: pip install -r requirements.txt
 
       - name: 수집 및 뷰어 생성
         run: python run_daily.py
@@ -54,7 +54,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.ref }}
 
