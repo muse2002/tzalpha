@@ -1,0 +1,82 @@
+{
+  "_comment": "종목을 추가하려면 universe에 한 줄 추가하면 됩니다. 코드는 안 건드려도 됩니다.",
+  "start_date": "2022-01-01",
+  "universe": [
+    {
+      "key": "HYNIX",
+      "ticker": "000660.KS",
+      "market": "KR",
+      "label": "SK하이닉스"
+    },
+    {
+      "key": "SAMSUNG",
+      "ticker": "005930.KS",
+      "market": "KR",
+      "label": "삼성전자"
+    },
+    {
+      "key": "HANMI",
+      "ticker": "042700.KS",
+      "market": "KR",
+      "label": "한미반도체"
+    },
+    {
+      "key": "LGIT",
+      "ticker": "011070.KS",
+      "market": "KR",
+      "label": "LG이노텍"
+    },
+    {
+      "key": "SKHY",
+      "ticker": "SKHY",
+      "market": "US",
+      "label": "SK하이닉스 ADR"
+    },
+    {
+      "key": "MU",
+      "ticker": "MU",
+      "market": "US",
+      "label": "마이크론"
+    },
+    {
+      "key": "SNDK",
+      "ticker": "SNDK",
+      "market": "US",
+      "label": "샌디스크"
+    },
+    {
+      "key": "NVDA",
+      "ticker": "NVDA",
+      "market": "US",
+      "label": "엔비디아"
+    },
+    {
+      "key": "SOXX",
+      "ticker": "SOXX",
+      "market": "US",
+      "label": "반도체 ETF"
+    },
+    {
+      "key": "AAPL",
+      "ticker": "AAPL",
+      "market": "US",
+      "label": "애플"
+    },
+    {
+      "key": "TSLA",
+      "ticker": "TSLA",
+      "market": "US",
+      "label": "테슬라"
+    },
+    {
+      "key": "FX",
+      "ticker": "KRW=X",
+      "market": "US",
+      "label": "원달러 환율"
+    }
+  ],
+  "cost_bps": 30,
+  "_cost_comment": "왕복 거래비용. 30bps = 0.30% (거래세 0.15% + 수수료 + 슬리피지). 보수적으로 잡을 것.",
+  "github_repo": "",
+  "_github_comment": "GitHub에 올렸다면 'muse2002/tzalpha' 형식으로 적으세요. 뷰어의 갱신 버튼이 Actions 실행 페이지로 연결됩니다. 비워두면 로컬 모드로만 동작합니다."
+}

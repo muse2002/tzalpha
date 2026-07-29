@@ -1,0 +1,120 @@
+{
+  "_읽어주세요": [
+    "모델 하나 = 아래 배열의 항목 하나. 코드를 고치지 말고 여기에 추가하세요.",
+    "",
+    "signal.field 로 쓸 수 있는 값:",
+    "  ret_close    : 종가 등락률 (전일 종가 대비). 미국 종목에 주로 씀.",
+    "  ret_intraday : 장중 등락률 (당일 시가 대비 종가).",
+    "  ret_gap      : 시가 갭 (전일 종가 대비 시가). 국내 종목의 09:00 시점 정보.",
+    "  adr_premium  : SKHY 종가를 환율로 환산해 본주 전일 종가와 비교한 괴리율. signal.key는 SKHY 고정.",
+    "",
+    "trade.entry / trade.exit 로 쓸 수 있는 값:",
+    "  prev_close, open, close",
+    "  * entry=prev_close 는 실제로 체결이 불가능합니다(측정 전용). executable:false 로 표시하세요.",
+    "",
+    "trade.direction:",
+    "  follow : 신호와 같은 방향에 베팅",
+    "  fade   : 신호와 반대 방향에 베팅 (과대반응 되돌림 가설)",
+    "",
+    "created_at 은 절대 나중에 고치지 마세요. 이 날짜 이후 성적만이 진짜 증거입니다."
+  ],
+
+  "models": [
+    {
+      "id": "M001",
+      "name": "샌디스크 종가 → 하이닉스 시가갭",
+      "hypothesis": "샌디스크 미국 종가가 오르면 하이닉스도 높게 시작한다. (형준님 최초 가설)",
+      "created_at": "2026-07-28",
+      "status": "reference",
+      "executable": false,
+      "signal": { "key": "SNDK", "field": "ret_close" },
+      "rule": { "long_above": 0.0, "short_below": 0.0 },
+      "trade": { "key": "HYNIX", "entry": "prev_close", "exit": "open", "direction": "follow" },
+      "note": "상관관계의 크기를 '측정'하는 용도. 전일 종가에 매수할 수 없으므로 실제 수익은 낼 수 없다. 이 모델의 성적이 높을수록 오히려 '이미 시가에 반영됐다'는 뜻."
+    },
+    {
+      "id": "M002",
+      "name": "샌디스크 종가 → 하이닉스 장중 추종",
+      "hypothesis": "시가에 다 반영되지 않고, 장중에도 같은 방향으로 더 간다 (과소반응).",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "SNDK", "field": "ret_close" },
+      "rule": { "long_above": 0.02, "short_below": -0.02 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "note": "실제 실행 가능한 형태. 09:00 시가 매수 → 15:30 종가 청산."
+    },
+    {
+      "id": "M003",
+      "name": "샌디스크 종가 → 하이닉스 장중 되돌림",
+      "hypothesis": "시가에 과하게 반영되고, 장중에는 되돌린다 (과대반응).",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "SNDK", "field": "ret_close" },
+      "rule": { "long_above": 0.02, "short_below": -0.02 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "fade" },
+      "note": "M002의 정반대. 둘 중 하나는 반드시 지는 구조 -> 둘 다 승률 50% 근처면 '아무 패턴 없음'이 정답."
+    },
+    {
+      "id": "M004",
+      "name": "SOX 반도체지수 → 하이닉스 장중 추종",
+      "hypothesis": "개별 종목보다 섹터 지수가 깨끗한 신호다.",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "SOXX", "field": "ret_close" },
+      "rule": { "long_above": 0.015, "short_below": -0.015 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "note": "M002의 대조군. SNDK보다 나은지 직접 비교하기 위한 모델."
+    },
+    {
+      "id": "M005",
+      "name": "ADR 괴리율 → 하이닉스 장중 추종",
+      "hypothesis": "SKHY가 본주보다 비싸게 마감하면, 국장이 그 차이를 따라 메운다.",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "SKHY", "field": "adr_premium" },
+      "rule": { "long_above": 0.01, "short_below": -0.01 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "note": "가장 유망한 후보. 단 SKHY가 2026-07-10 상장이라 표본이 극히 적음. 최소 60일 기다릴 것."
+    },
+    {
+      "id": "M006",
+      "name": "시가 갭 되돌림",
+      "hypothesis": "시가가 크게 뛰어서 열리면 장중에 되돌린다. (개인 비중 높은 시장의 과열)",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "HYNIX", "field": "ret_gap" },
+      "rule": { "long_above": 0.025, "short_below": -0.025 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "fade" },
+      "note": "미국 신호를 아예 안 쓰는 모델. 미국 신호 모델들이 이것보다 못하면, 미국 신호는 무의미하다는 뜻."
+    },
+    {
+      "id": "M007",
+      "name": "애플 → LG이노텍 (대조군)",
+      "hypothesis": "공급망이 직접 묶인 페어는 심리로 묶인 페어보다 신호가 깨끗하다.",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "AAPL", "field": "ret_close" },
+      "rule": { "long_above": 0.02, "short_below": -0.02 },
+      "trade": { "key": "LGIT", "entry": "open", "exit": "close", "direction": "follow" },
+      "note": "인과가 명확한 페어의 성적. 하이닉스 모델들과 비교하는 기준선."
+    },
+    {
+      "id": "M008",
+      "name": "동전던지기 (플라시보)",
+      "hypothesis": "아무 근거 없음. 이 모델보다 못한 모델은 전부 폐기 대상.",
+      "created_at": "2026-07-28",
+      "status": "live",
+      "executable": true,
+      "signal": { "key": "HYNIX", "field": "coinflip" },
+      "rule": { "long_above": 0.0, "short_below": 0.0 },
+      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "note": "날짜를 씨앗으로 만든 난수. 반드시 넣어야 하는 모델. 다른 모델의 성적이 '진짜인지' 판단하는 유일한 기준선이다."
+    }
+  ]
+}
