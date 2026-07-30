@@ -99,8 +99,13 @@ def _adr_ratio(panels: dict) -> float:
     return float(np.median(j["adr_usd"] * j["fx"] / j["hy"]))
 
 
-def compute_signal(spec: dict, panels: dict, markets: dict, kr_dates: pd.DatetimeIndex) -> pd.Series:
+def compute_signal(spec: dict, panels: dict, markets: dict, kr_dates: pd.DatetimeIndex,
+                   trade_market: str = "KR") -> pd.Series:
     key, field = spec["signal"]["key"], spec["signal"]["field"]
+
+    if field == "constant":
+        # 신호 없이 항상 진입하는 모델용. 조건 없는 기준선을 재는 데 쓴다.
+        return pd.Series(1.0, index=kr_dates)
 
     if field == "coinflip":
         # 날짜를 씨앗으로 한 난수. 매번 같은 값이 나오도록 고정.
@@ -122,6 +127,10 @@ def compute_signal(spec: dict, panels: dict, markets: dict, kr_dates: pd.Datetim
         raw = implied
     elif field == "ret_close":
         raw = src["close"] / src["close"].shift(1) - 1
+    elif field == "ret_prev_close":
+        # 전전일 대비 전일 종가 등락률.
+        # 전일 종가에 진입하는 오버나이트 모델에서 '그 시점에 이미 알 수 있는' 유일한 값.
+        raw = src["close"].shift(1) / src["close"].shift(2) - 1
     elif field == "ret_intraday":
         raw = src["close"] / src["open"] - 1
     elif field == "ret_gap":
@@ -129,11 +138,11 @@ def compute_signal(spec: dict, panels: dict, markets: dict, kr_dates: pd.Datetim
     else:
         raise ValueError(f"모르는 signal.field: {field}")
 
-    if markets.get(key) == "KR":
-        # 국내 신호는 같은 날 09:00에 알 수 있는 값만 허용(ret_gap).
+    # 신호와 매매 대상이 같은 시장이면 날짜를 옮기지 않는다.
+    # 다른 시장일 때만(미국 신호 -> 국내 매매) 직전 세션으로 당겨온다.
+    if markets.get(key) == trade_market:
         return raw.reindex(kr_dates)
 
-    # 미국 신호는 직전 세션으로 당겨온다.
     us_map = align_us_to_kr(kr_dates, src.index)
     vals = raw.reindex(us_map.values).values
     s = pd.Series(vals, index=kr_dates)
@@ -164,7 +173,7 @@ def evaluate(spec: dict, panels: dict, markets: dict, cost_bps: float) -> pd.Dat
     trade_df = panels[tkey]
     kr_dates = trade_df.index
 
-    sig = compute_signal(spec, panels, markets, kr_dates)
+    sig = compute_signal(spec, panels, markets, kr_dates, markets.get(tkey, "KR"))
     unit = _leg_return(trade_df, spec["trade"]["entry"], spec["trade"]["exit"])
 
     out = pd.DataFrame({"signal": sig, "unit_return": unit}).dropna()
@@ -208,7 +217,7 @@ def record_predictions(models: list[dict], panels: dict, markets: dict, cost_bps
             continue
 
         # 신호가 나온 가장 최근 세션
-        if spec["signal"]["field"] == "coinflip" or markets.get(skey) == "KR":
+        if spec["signal"]["field"] in ("coinflip", "constant") or markets.get(skey) == markets.get(tkey, "KR"):
             sig_date = panels[tkey].index.max()
         else:
             if skey not in panels:
@@ -228,7 +237,8 @@ def record_predictions(models: list[dict], panels: dict, markets: dict, cost_bps
         ev = evaluate(spec, panels, markets, cost_bps)
         # 최신 신호값 계산 (매매 결과는 아직 모름)
         tmp_dates = pd.DatetimeIndex([sig_date + pd.Timedelta(days=1)])
-        sigval = compute_signal(spec, panels, markets, tmp_dates).iloc[0] if len(ev) else np.nan
+        sigval = compute_signal(spec, panels, markets, tmp_dates,
+                                markets.get(tkey, "KR")).iloc[0] if len(ev) else np.nan
         if not np.isfinite(sigval):
             continue
 
@@ -355,6 +365,95 @@ def diagnose(panels: dict, markets: dict) -> dict:
             "fx_level": None if fx is None else round(float(fx["close"].iloc[-1]), 2)}
 
 
+def adr_forecast(panels: dict) -> dict:
+    """
+    "미국은 하이닉스를 얼마로 봤나"를 계산한다.
+
+        SKHY 종가(달러) x 환율 / ADR비율  =  원화 환산가
+        환산가 / 하이닉스 전일 종가 - 1    =  미국이 매긴 예상 갭
+
+    그리고 과거에 이 예상이 실제 시가와 얼마나 맞았는지도 같이 낸다.
+    맞는지 여부를 매일 자동으로 채점하는 것이 핵심이다.
+    """
+    skhy, fx, hy = panels.get("SKHY"), panels.get("FX"), panels.get("HYNIX")
+    if skhy is None or fx is None or hy is None or len(skhy) < 3:
+        return {"ok": False, "reason": "SKHY 데이터가 아직 부족합니다."}
+
+    ratio = _adr_ratio(panels)
+    if not np.isfinite(ratio):
+        return {"ok": False, "reason": "ADR 비율을 아직 추정할 수 없습니다."}
+
+    fx_al = fx["close"].reindex(skhy.index).ffill()
+    implied = (skhy["close"] * fx_al) / ratio          # 원화 환산가 (미국 세션 날짜 기준)
+
+    kr = hy.index
+    us_map = align_us_to_kr(kr, skhy.index)            # 한국 D일 <- 직전 미국 세션
+
+    rows = []
+    prev_close = hy["close"].shift(1)
+    for d in kr:
+        u = us_map.get(d)
+        if u is None or (isinstance(u, float) and not np.isfinite(u)):
+            continue
+        if u not in implied.index or not np.isfinite(implied.loc[u]):
+            continue
+        pc = prev_close.get(d, np.nan)
+        if not np.isfinite(pc):
+            continue
+        exp_gap = float(implied.loc[u] / pc - 1)
+        op = float(hy["open"].loc[d]) if np.isfinite(hy["open"].loc[d]) else np.nan
+        act_gap = float(op / pc - 1) if np.isfinite(op) else None
+        rows.append({
+            "date": str(d.date()),
+            "us_date": str(pd.Timestamp(u).date()),
+            "adr_usd": round(float(skhy["close"].loc[u]), 2),
+            "fx": round(float(fx_al.loc[u]), 2),
+            "implied": round(float(implied.loc[u])),
+            "prev_close": round(float(pc)),
+            "open": None if not np.isfinite(op) else round(op),
+            "exp_gap": round(exp_gap, 5),
+            "act_gap": None if act_gap is None else round(act_gap, 5),
+            "err": None if act_gap is None else round(act_gap - exp_gap, 5),
+        })
+
+    # 아직 시가가 안 나온 '다음 거래일' 예상
+    last_us = skhy.index.max()
+    pending = None
+    if np.isfinite(implied.get(last_us, np.nan)):
+        traded = [r for r in rows if r["us_date"] == str(pd.Timestamp(last_us).date())]
+        if not traded:                                  # 아직 국장이 안 열림
+            pc = float(hy["close"].iloc[-1])
+            pending = {
+                "us_date": str(pd.Timestamp(last_us).date()),
+                "adr_usd": round(float(skhy["close"].loc[last_us]), 2),
+                "adr_ret": round(float(skhy["close"].loc[last_us] / skhy["close"].shift(1).loc[last_us] - 1), 5)
+                           if len(skhy) > 1 else None,
+                "fx": round(float(fx_al.loc[last_us]), 2),
+                "implied": round(float(implied.loc[last_us])),
+                "prev_close": round(pc),
+                "exp_gap": round(float(implied.loc[last_us] / pc - 1), 5),
+            }
+
+    scored = [r for r in rows if r["err"] is not None]
+    acc = None
+    if len(scored) >= 3:
+        errs = np.array([r["err"] for r in scored])
+        exps = np.array([r["exp_gap"] for r in scored])
+        acts = np.array([r["act_gap"] for r in scored])
+        hit = float((np.sign(exps) == np.sign(acts)).mean())
+        acc = {
+            "n": len(scored),
+            "mae": round(float(np.abs(errs).mean()), 5),      # 평균 절대 오차
+            "bias": round(float(errs.mean()), 5),             # 한쪽으로 치우쳤는지
+            "dir_hit": round(hit, 3),                          # 방향 적중률
+            "naive_mae": round(float(np.abs(acts).mean()), 5), # "갭 0%로 찍기"와 비교
+        }
+
+    return {"ok": True, "ratio": round(float(ratio), 4),
+            "pending": pending, "history": rows[-120:], "accuracy": acc}
+
+
+
 def load_events() -> list[dict]:
     p = ROOT / "events.json"
     if not p.exists():
@@ -395,7 +494,8 @@ def run() -> dict:
     return {"results": results, "ledger": ledger, "models": models,
             "panels": panels, "markets": markets, "cfg": cfg,
             "adr_ratio": _adr_ratio(panels),
-            "diag": diag, "events": load_events()}
+            "diag": diag, "events": load_events(),
+            "adr": adr_forecast(panels)}
 
 
 if __name__ == "__main__":
