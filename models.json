@@ -3,6 +3,8 @@
     "모델 하나 = 아래 배열의 항목 하나. 코드를 고치지 말고 여기에 추가하세요.",
     "",
     "signal.field 로 쓸 수 있는 값:",
+    "  constant       : 신호 없이 항상 진입. 조건 없는 기준선을 잴 때.",
+    "  ret_prev_close : 전전일 대비 전일 종가 등락률. 전일 종가에 진입하는 오버나이트 모델에서 쓸 수 있는 유일한 신호.",
     "  ret_close    : 종가 등락률 (전일 종가 대비). 미국 종목에 주로 씀.",
     "  ret_intraday : 장중 등락률 (당일 시가 대비 종가).",
     "  ret_gap      : 시가 갭 (전일 종가 대비 시가). 국내 종목의 09:00 시점 정보.",
@@ -18,7 +20,6 @@
     "",
     "created_at 은 절대 나중에 고치지 마세요. 이 날짜 이후 성적만이 진짜 증거입니다."
   ],
-
   "models": [
     {
       "id": "M001",
@@ -27,10 +28,21 @@
       "created_at": "2026-07-28",
       "status": "reference",
       "executable": false,
-      "signal": { "key": "SNDK", "field": "ret_close" },
-      "rule": { "long_above": 0.0, "short_below": 0.0 },
-      "trade": { "key": "HYNIX", "entry": "prev_close", "exit": "open", "direction": "follow" },
-      "note": "상관관계의 크기를 '측정'하는 용도. 전일 종가에 매수할 수 없으므로 실제 수익은 낼 수 없다. 이 모델의 성적이 높을수록 오히려 '이미 시가에 반영됐다'는 뜻."
+      "signal": {
+        "key": "SNDK",
+        "field": "ret_close"
+      },
+      "rule": {
+        "long_above": 0.0,
+        "short_below": 0.0
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "prev_close",
+        "exit": "open",
+        "direction": "follow"
+      },
+      "note": "실행 불가인 이유: '전일 종가에 못 사서'가 아니다. 종가 단일가매매(15:20~15:30)로 살 수 있다. 진짜 이유는 신호(샌디스크 종가)가 05:00에 나오는데 매수는 전날 15:30에 해야 해서 순서가 안 맞기 때문. 정보가 도착하기 10시간 전에 사야 하는 구조다. 상관관계 크기를 재는 용도로만 쓴다."
     },
     {
       "id": "M002",
@@ -39,9 +51,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "SNDK", "field": "ret_close" },
-      "rule": { "long_above": 0.02, "short_below": -0.02 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "signal": {
+        "key": "SNDK",
+        "field": "ret_close"
+      },
+      "rule": {
+        "long_above": 0.02,
+        "short_below": -0.02
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
       "note": "실제 실행 가능한 형태. 09:00 시가 매수 → 15:30 종가 청산."
     },
     {
@@ -51,9 +74,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "SNDK", "field": "ret_close" },
-      "rule": { "long_above": 0.02, "short_below": -0.02 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "fade" },
+      "signal": {
+        "key": "SNDK",
+        "field": "ret_close"
+      },
+      "rule": {
+        "long_above": 0.02,
+        "short_below": -0.02
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "fade"
+      },
       "note": "M002의 정반대. 둘 중 하나는 반드시 지는 구조 -> 둘 다 승률 50% 근처면 '아무 패턴 없음'이 정답."
     },
     {
@@ -63,9 +97,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "SOXX", "field": "ret_close" },
-      "rule": { "long_above": 0.015, "short_below": -0.015 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "signal": {
+        "key": "SOXX",
+        "field": "ret_close"
+      },
+      "rule": {
+        "long_above": 0.015,
+        "short_below": -0.015
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
       "note": "M002의 대조군. SNDK보다 나은지 직접 비교하기 위한 모델."
     },
     {
@@ -75,9 +120,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "SKHY", "field": "adr_premium" },
-      "rule": { "long_above": 0.01, "short_below": -0.01 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "signal": {
+        "key": "SKHY",
+        "field": "adr_premium"
+      },
+      "rule": {
+        "long_above": 0.01,
+        "short_below": -0.01
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
       "note": "가장 유망한 후보. 단 SKHY가 2026-07-10 상장이라 표본이 극히 적음. 최소 60일 기다릴 것."
     },
     {
@@ -87,9 +143,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "HYNIX", "field": "ret_gap" },
-      "rule": { "long_above": 0.025, "short_below": -0.025 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "fade" },
+      "signal": {
+        "key": "HYNIX",
+        "field": "ret_gap"
+      },
+      "rule": {
+        "long_above": 0.025,
+        "short_below": -0.025
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "fade"
+      },
       "note": "미국 신호를 아예 안 쓰는 모델. 미국 신호 모델들이 이것보다 못하면, 미국 신호는 무의미하다는 뜻."
     },
     {
@@ -99,9 +166,20 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "AAPL", "field": "ret_close" },
-      "rule": { "long_above": 0.02, "short_below": -0.02 },
-      "trade": { "key": "LGIT", "entry": "open", "exit": "close", "direction": "follow" },
+      "signal": {
+        "key": "AAPL",
+        "field": "ret_close"
+      },
+      "rule": {
+        "long_above": 0.02,
+        "short_below": -0.02
+      },
+      "trade": {
+        "key": "LGIT",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
       "note": "인과가 명확한 페어의 성적. 하이닉스 모델들과 비교하는 기준선."
     },
     {
@@ -111,10 +189,113 @@
       "created_at": "2026-07-28",
       "status": "live",
       "executable": true,
-      "signal": { "key": "HYNIX", "field": "coinflip" },
-      "rule": { "long_above": 0.0, "short_below": 0.0 },
-      "trade": { "key": "HYNIX", "entry": "open", "exit": "close", "direction": "follow" },
+      "signal": {
+        "key": "HYNIX",
+        "field": "coinflip"
+      },
+      "rule": {
+        "long_above": 0.0,
+        "short_below": 0.0
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
       "note": "날짜를 씨앗으로 만든 난수. 반드시 넣어야 하는 모델. 다른 모델의 성적이 '진짜인지' 판단하는 유일한 기준선이다."
+    },
+    {
+      "id": "M009",
+      "name": "오버나이트 · 하이닉스 (미국 세션 담기)",
+      "hypothesis": "하이닉스 수익은 장중이 아니라 밤 사이에 몰려 있다. 종가에 사서 시가에 팔면 미국 세션이 통째로 담긴다.",
+      "created_at": "2026-07-30",
+      "status": "live",
+      "executable": true,
+      "signal": {
+        "key": "HYNIX",
+        "field": "constant"
+      },
+      "rule": {
+        "long_above": 0.0,
+        "short_below": -99
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "prev_close",
+        "exit": "open",
+        "direction": "follow"
+      },
+      "note": "형준님 아이디어의 정확한 형태. 15:20~15:30 종가 단일가매매로 매수, 다음날 08:30~09:00 시가 동시호가로 매도. 신호 없이 매일 무조건 진입한다. M012(장중)와 비교하는 것이 이 모델의 목적."
+    },
+    {
+      "id": "M010",
+      "name": "장중 · 하이닉스 (한국 세션만)",
+      "hypothesis": "M009의 대조군. 낮에만 들고 있으면 어떤가.",
+      "created_at": "2026-07-30",
+      "status": "live",
+      "executable": true,
+      "signal": {
+        "key": "HYNIX",
+        "field": "constant"
+      },
+      "rule": {
+        "long_above": 0.0,
+        "short_below": -99
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "open",
+        "exit": "close",
+        "direction": "follow"
+      },
+      "note": "M009와 이 모델의 차이가 '수익이 밤에 있나 낮에 있나'의 답이다. 둘을 반드시 나란히 볼 것."
+    },
+    {
+      "id": "M011",
+      "name": "오버나이트 · SKHY (한국 세션 담기)",
+      "hypothesis": "거울상. SKHY를 미국 종가에 사서 다음 미국 시가에 팔면 한국 세션이 통째로 담긴다.",
+      "created_at": "2026-07-30",
+      "status": "live",
+      "executable": true,
+      "signal": {
+        "key": "SKHY",
+        "field": "constant"
+      },
+      "rule": {
+        "long_above": 0.0,
+        "short_below": -99
+      },
+      "trade": {
+        "key": "SKHY",
+        "entry": "prev_close",
+        "exit": "open",
+        "direction": "follow"
+      },
+      "note": "미국 계좌 필요. SKHY는 2026-07-10 상장이라 표본이 극히 적다. 최소 60거래일 대기. 거래세가 없어 국내보다 비용이 낮은 것이 장점."
+    },
+    {
+      "id": "M012",
+      "name": "오버나이트 되돌림 · 하이닉스",
+      "hypothesis": "전일이 크게 올랐으면 밤 사이 되돌린다. 전일 종가 등락률로 방향을 뒤집는다.",
+      "created_at": "2026-07-30",
+      "status": "live",
+      "executable": true,
+      "signal": {
+        "key": "HYNIX",
+        "field": "ret_prev_close"
+      },
+      "rule": {
+        "long_above": 0.025,
+        "short_below": -0.025
+      },
+      "trade": {
+        "key": "HYNIX",
+        "entry": "prev_close",
+        "exit": "open",
+        "direction": "fade"
+      },
+      "note": "M009에 조건을 붙인 형태. ret_prev_close는 매수 시점(15:30)에 이미 알 수 있는 값이라 미래 정보를 당겨쓰지 않는다."
     }
   ]
 }
